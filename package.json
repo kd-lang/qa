@@ -16,10 +16,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@types/uuid": "^11.0.0",
     "tree-sitter": "^0.21.1",
     "tree-sitter-java": "^0.21.0",
     "tree-sitter-python": "^0.21.0",
-    "tree-sitter-typescript": "^0.21.0"
+    "tree-sitter-typescript": "^0.21.0",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",
