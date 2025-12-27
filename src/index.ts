@@ -2,14 +2,22 @@ import { ProjectAnalysisService } from './project/project-analysis.service';
 import { CanonicalAstService } from './canonical/canonical-ast.service';
 import { GraphBuilderService } from './graph/graph-builder.service';
 import { RuleBasedErrorDetector } from './error-detector/error-detector.service';
+import { SymbolExtractionService } from './symbols/symbol-extraction.service';
+import { NamespaceTable } from './symbols/namespace-table';
+import { ProjectGraph } from './graph/project-graph';
 import { AnalysisError } from './error-detector/analysis-error';
 
-// A custom replacer for JSON.stringify to handle Maps.
+// A custom replacer for JSON.stringify to handle Maps and Sets.
 const replacer = (key, value) => {
   if (value instanceof Map) {
     return {
       dataType: 'Map',
       value: Array.from(value.entries()),
+    };
+  } else if (value instanceof Set) {
+    return {
+      dataType: 'Set',
+      value: Array.from(value),
     };
   }
   return value;
@@ -26,7 +34,9 @@ async function main() {
 
   console.log(`Analyzing project at: ${projectPath}`);
 
-  // 1. Analyze the project to get all raw ASTs
+  // --- Phase 1: Registration ---
+
+  // 1. Get all raw ASTs
   const analysisService = new ProjectAnalysisService();
   const rawAsts = analysisService.analyzeProject(projectPath);
 
@@ -35,19 +45,26 @@ async function main() {
     return;
   }
 
-  // 2. Convert all raw ASTs to Canonical ASTs
+  // 2. Convert to Canonical ASTs with roles and languages
   const canonicalAstService = new CanonicalAstService();
   const canonicalAsts = rawAsts.map(rawAst => canonicalAstService.convert(rawAst));
 
-  // 3. Build the project graph with symbol tables
+  // 3. Build the graph, registering namespaces and symbols
   const graphBuilder = new GraphBuilderService();
-  const projectGraph = graphBuilder.buildGraph(canonicalAsts);
+  const symbolExtractor = new SymbolExtractionService();
+  const namespaces: NamespaceTable = { java: new Set(), python: new Set(), typescript: new Set() };
+  
+  const projectGraph: ProjectGraph = graphBuilder.buildGraph(canonicalAsts, symbolExtractor, namespaces);
 
-  // 4. Run the error detector on the project graph
+  // --- Phase 2: Resolution ---
+
+  // 4. Run the error detector on the now-complete project graph
   const errorDetector = new RuleBasedErrorDetector();
-  const errors: AnalysisError[] = errorDetector.detectErrors(projectGraph);
+  const errors: AnalysisError[] = errorDetector.detectErrors(projectGraph.files.values());
 
-  // 5. Output the results as JSON
+  // --- Final Output ---
+
+  // 5. Serialize the results to JSON
   const output = {
     projectGraph,
     errors,

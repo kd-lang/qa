@@ -1,81 +1,74 @@
+
 /**
- * @fileoverview Defines the language-agnostic, canonical abstract syntax tree (AST).
- * This AST is designed to be deterministic and comparable across different languages.
+ * A language-agnostic, queryable knowledge graph for Java, Python, and TypeScript that:
+ * - Does not report false errors for package/module paths
+ * - Correctly distinguishes namespaces vs symbols
+ * - Supports dependency analysis, error localization, refactoring, and impact analysis
+ * - Works without requiring the entire project context
  */
 
 /**
- * An enumeration of the canonical node types. 
- * These types are designed to be language-agnostic.
+ * The set of supported languages.
  */
-export enum CanonicalNodeType {
-
-  // Top-level constructs
-  PROGRAM = 'PROGRAM',
-  IMPORT_STATEMENT = 'IMPORT_STATEMENT',
-  EXPORT_STATEMENT = 'EXPORT_STATEMENT',
-  FUNCTION_DECLARATION = 'FUNCTION_DECLARATION',
-  CLASS_DECLARATION = 'CLASS_DECLARATION',
-
-  // Imports
-  IMPORT_CLAUSE = 'IMPORT_CLAUSE',
-  NAMED_IMPORTS = 'NAMED_IMPORTS',
-  IMPORT_SPECIFIER = 'IMPORT_SPECIFIER',
-  NAMESPACE_IMPORT = 'NAMESPACE_IMPORT',
-
-  // Declarations
-  VARIABLE_DECLARATION = 'VARIABLE_DECLARATION',
-  VARIABLE_DECLARATOR = 'VARIABLE_DECLARATOR',
-  LEXICAL_DECLARATION = 'LEXICAL_DECLARATION',
-
-  // Statements
-  EXPRESSION_STATEMENT = 'EXPRESSION_STATEMENT',
-  IF_STATEMENT = 'IF_STATEMENT',
-  SWITCH_STATEMENT = 'SWITCH_STATEMENT',
-  FOR_STATEMENT = 'FOR_STATEMENT',
-  WHILE_STATEMENT = 'WHILE_STATEMENT',
-  DO_STATEMENT = 'DO_STATEMENT',
-  RETURN_STATEMENT = 'RETURN_STATEMENT',
-  STATEMENT_BLOCK = 'STATEMENT_BLOCK',
-
-  // Expressions
-  CALL_EXPRESSION = 'CALL_EXPRESSION',
-  MEMBER_EXPRESSION = 'MEMBER_EXPRESSION',
-  LITERAL = 'LITERAL',
-  IDENTIFIER = 'IDENTIFIER',
-  PROPERTY_IDENTIFIER = 'PROPERTY_IDENTIFIER',
-  ARGUMENTS = 'ARGUMENTS',
-  FORMAL_PARAMETERS = 'FORMAL_PARAMETERS',
-  ARROW_FUNCTION = 'ARROW_FUNCTION',
-
-  // Types
-  TYPE_ANNOTATION = 'TYPE_ANNOTATION',
-  TYPE_IDENTIFIER = 'TYPE_IDENTIFIER',
-
-  // Literals
-  STRING_FRAGMENT = 'STRING_FRAGMENT', // content of a string
-
-  // Comments
-  COMMENT = 'COMMENT',
+export enum Language {
+  JAVA = 'java',
+  PYTHON = 'python',
+  TYPESCRIPT = 'typescript',
+  UNKNOWN = 'unknown',
 }
 
 /**
- * Represents a node in the CanonicalAst.
+ * The semantic role of a node in the AST, independent of its language-specific type.
+ * This is the cornerstone of the language-agnostic analysis.
+ */
+export enum NodeRole {
+  // Non-resolvable roles
+  NAMESPACE_SEGMENT = 'NAMESPACE_SEGMENT', // e.g., 'com', 'nival', 'chit'
+  MODULE_PATH = 'MODULE_PATH', // e.g., 'com.nival.chit.dto'
+  TYPE_DECLARATION = 'TYPE_DECLARATION', // e.g., 'class Auction', 'interface User'
+  FUNCTION_DECLARATION = 'FUNCTION_DECLARATION', // e.g., 'void save()', 'def calculate()'
+  VARIABLE_DECLARATION = 'VARIABLE_DECLARATION', // e.g., 'int x =', 'let y ='
+
+  // Resolvable roles
+  TYPE_REFERENCE = 'TYPE_REFERENCE', // e.g., new AuctionDTO(), List<String>
+  FUNCTION_CALL = 'FUNCTION_CALL', // e.g., 'save()', 'print()'
+  VARIABLE_REFERENCE = 'VARIABLE_REFERENCE', // e.g., 'x', 'this.user'
+  FIELD_REFERENCE = 'FIELD_REFERENCE', // e.g., 'obj.field'
+  IMPORT_TARGET = 'IMPORT_TARGET', // The leaf of an import statement, e.g., 'AuctionDTO' in 'import ...AuctionDTO'
+
+  // Other roles
+  UNKNOWN = 'UNKNOWN',
+}
+
+/**
+ * Represents a point in a source file.
+ */
+export interface Point {
+  row: number;
+  column: number;
+}
+
+/**
+ * A single node in the Canonical AST.
+ * It includes language-agnostic type and role information.
  */
 export interface CanonicalNode {
-  id: string; // A unique, deterministic ID for the node
-  type: CanonicalNodeType; // The canonical type of the node
+  id: string; // A unique identifier for the node
+  language: Language;
+  type: string; // The original language-specific type from the parser
+  role: NodeRole; // The new, standardized semantic role
   text: string; // The source text of the node
-  filePath: string; // The file path of the source file
-  startPosition: { row: number; column: number }; // The start position of the node in the source file
-  endPosition: { row: number; column: number }; // The end position of the node in the source file
-  children: string[]; // An array of child node IDs
+  filePath: string;
+  startPosition: Point;
+  endPosition: Point;
+  children: string[];
 }
 
 /**
- * Represents the entire canonical abstract syntax tree for a given file.
+ * A language-agnostic Abstract Syntax Tree for a single file.
  */
 export interface CanonicalAst {
-  rootId: string; // The ID of the root node
-  filePath: string; // The file path of the source file
-  nodes: Map<string, CanonicalNode>; // A map of node IDs to CanonicalNode objects
+  filePath: string;
+  rootId: string;
+  nodes: Map<string, CanonicalNode>;
 }

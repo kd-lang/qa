@@ -1,85 +1,157 @@
-import { CanonicalAst, CanonicalNode, CanonicalNodeType } from '../canonical/canonical-ast';
-import { Symbol, SymbolTable, SymbolType } from './symbol-table';
+import { CanonicalAst, CanonicalNode, NodeRole, Language } from '../canonical/canonical-ast';
+import { ScopedSymbolTable, Symbol, SymbolType } from './symbol-table';
+import { NamespaceTable } from './namespace-table';
 
 /**
- * A service to extract symbols from a Canonical AST and build a SymbolTable.
+ * A service to extract symbols and namespaces from a Canonical AST.
+ * This service performs the "Registration" phase of the analysis.
  */
 export class SymbolExtractionService {
   /**
-   * Extracts all symbols from a given CanonicalAst.
+   * Extracts all symbols and namespaces from a given CanonicalAst.
    * @param ast The CanonicalAst to process.
-   * @returns A SymbolTable for the given AST.
+   * @param namespaces The global NamespaceTable to populate.
+   * @returns A ScopedSymbolTable for the given AST.
    */
-  public extractSymbols(ast: CanonicalAst): SymbolTable {
-    const symbols = new Map<string, Symbol>();
+  public extractSymbols(ast: CanonicalAst, namespaces: NamespaceTable): ScopedSymbolTable {
+    const fileSymbols = new Map<string, Symbol>();
+    const importedSymbols = new Map<string, Symbol>();
+    const exportedSymbols = new Map<string, Symbol>(); // Future use
+
     const rootNode = ast.nodes.get(ast.rootId);
 
     if (rootNode) {
-      this.traverse(rootNode, ast.nodes, symbols);
+      this.traverseForRegistration(rootNode, ast.nodes, fileSymbols, importedSymbols, namespaces);
     }
 
-    return { symbols };
+    return { fileSymbols, importedSymbols, exportedSymbols };
   }
 
   /**
-   * Traverses the Canonical AST to find and record symbol declarations.
+   * Traverses the Canonical AST to register namespaces, declarations, and imports.
    * @param node The current node to inspect.
    * @param allNodes A map of all nodes in the AST.
-   * @param symbols The map of symbols being built.
+   * @param fileSymbols The map of symbols defined in the file.
+   * @param importedSymbols The map of symbols imported into the file.
+   * @param namespaces The global namespace table.
    */
-  private traverse(node: CanonicalNode, allNodes: Map<string, CanonicalNode>, symbols: Map<string, Symbol>): void {
-    switch (node.type) {
-      case CanonicalNodeType.FUNCTION_DECLARATION:
-      case CanonicalNodeType.CLASS_DECLARATION:
-      case CanonicalNodeType.VARIABLE_DECLARATION:
-        this.addSymbol(node, symbols, allNodes);
+  private traverseForRegistration(
+    node: CanonicalNode,
+    allNodes: Map<string, CanonicalNode>,
+    fileSymbols: Map<string, Symbol>,
+    importedSymbols: Map<string, Symbol>,
+    namespaces: NamespaceTable,
+  ): void {
+    switch (node.role) {
+      // 1. Register Namespaces
+      case NodeRole.MODULE_PATH:
+        this.registerNamespace(node, namespaces);
+        break;
+
+      // 2. Register Declarations
+      case NodeRole.TYPE_DECLARATION:
+      case NodeRole.FUNCTION_DECLARATION:
+      case NodeRole.VARIABLE_DECLARATION:
+        this.addSymbol(node, fileSymbols, allNodes);
+        break;
+
+      // 3. Register Import Targets
+      case NodeRole.IMPORT_TARGET:
+        this.addImportedSymbol(node, importedSymbols);
         break;
     }
 
     for (const childId of node.children) {
       const childNode = allNodes.get(childId);
       if (childNode) {
-        this.traverse(childNode, allNodes, symbols);
+        this.traverseForRegistration(childNode, allNodes, fileSymbols, importedSymbols, namespaces);
       }
     }
   }
 
   /**
-   * Adds a new symbol to the symbol map.
-   * @param node The node representing the symbol declaration.
-   * @param symbols The map of symbols being built.
+   * Registers a namespace in the appropriate language set.
+   * @param node The node representing the namespace declaration (e.g., package, import).
+   * @param namespaces The global namespace table.
+   */
+  private registerNamespace(node: CanonicalNode, namespaces: NamespaceTable): void {
+    const namespacePath = node.text;
+    switch (node.language) {
+      case Language.JAVA:
+        namespaces.java.add(namespacePath);
+        break;
+      case Language.PYTHON:
+        namespaces.python.add(namespacePath);
+        break;
+      case Language.TYPESCRIPT:
+        namespaces.typescript.add(namespacePath);
+        break;
+    }
+  }
+
+  /**
+   * Adds a newly declared symbol to the file-scoped symbol map.
+   * @param node The declaration node.
+   * @param fileSymbols The map of symbols being built.
    * @param allNodes A map of all nodes in the AST.
    */
-  private addSymbol(node: CanonicalNode, symbols: Map<string, Symbol>, allNodes: Map<string, CanonicalNode>): void {
-    // The identifier is often the first child of a declaration.
-    // This is a simplification and needs to be made more robust.
-    const identifierNode = node.children.length > 0 ? allNodes.get(node.children[0]) : undefined;
-    const name = identifierNode ? identifierNode.text : '[unknown]';
+  private addSymbol(node: CanonicalNode, fileSymbols: Map<string, Symbol>, allNodes: Map<string, CanonicalNode>): void {
+    // A more robust implementation would find the specific identifier child.
+    const name = this.findPrimaryIdentifier(node, allNodes) || '[unknown_declaration]';
 
     const symbol: Symbol = {
       name,
-      type: this.mapNodeTypeToSymbolType(node.type),
+      type: this.mapRoleToSymbolType(node.role),
       nodeId: node.id,
       filePath: node.filePath,
     };
 
-    // Use the symbol name as the key for now.
-    // This will need to handle scopes in the future.
-    symbols.set(name, symbol);
+    fileSymbols.set(name, symbol);
   }
 
   /**
-   * Maps a CanonicalNodeType to a SymbolType.
-   * @param nodeType The node type to map.
+   * Adds a symbol from an import statement to the imported symbol map.
+   * @param node The node representing the imported symbol (the leaf of the import).
+   * @param importedSymbols The map of imported symbols being built.
+   */
+  private addImportedSymbol(node: CanonicalNode, importedSymbols: Map<string, Symbol>): void {
+    const name = node.text;
+
+    const symbol: Symbol = {
+      name,
+      type: SymbolType.UNKNOWN, // We may not know the type from the import alone
+      nodeId: node.id,
+      filePath: node.filePath, // The file where the import occurs
+    };
+
+    importedSymbols.set(name, symbol);
+  }
+
+  private findPrimaryIdentifier(node: CanonicalNode, allNodes: Map<string, CanonicalNode>): string | null {
+    // This is a heuristic. A robust implementation would need language-specific logic.
+    // For many languages, the first identifier child of a declaration is the name.
+    for(const childId of node.children) {
+        const child = allNodes.get(childId);
+        if(child && child.role === NodeRole.VARIABLE_REFERENCE) { // Or a more specific 'DECLARATION_IDENTIFIER' role
+            return child.text;
+        }
+    }
+    return node.text; // Fallback
+  }
+
+
+  /**
+   * Maps a NodeRole to a SymbolType.
+   * @param role The node role to map.
    * @returns The corresponding SymbolType.
    */
-  private mapNodeTypeToSymbolType(nodeType: CanonicalNodeType): SymbolType {
-    switch (nodeType) {
-      case CanonicalNodeType.FUNCTION_DECLARATION:
-        return SymbolType.FUNCTION;
-      case CanonicalNodeType.CLASS_DECLARATION:
+  private mapRoleToSymbolType(role: NodeRole): SymbolType {
+    switch (role) {
+      case NodeRole.TYPE_DECLARATION:
         return SymbolType.CLASS;
-      case CanonicalNodeType.VARIABLE_DECLARATION:
+      case NodeRole.FUNCTION_DECLARATION:
+        return SymbolType.FUNCTION;
+      case NodeRole.VARIABLE_DECLARATION:
         return SymbolType.VARIABLE;
       default:
         return SymbolType.UNKNOWN;

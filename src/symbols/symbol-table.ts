@@ -19,9 +19,15 @@ export interface Symbol {
 }
 
 /**
- * A table of all symbols in a given scope (e.g., a file).
- * The key is the symbol name.
+ * A table of all symbols in a given file, organized by scope.
  */
-export interface SymbolTable {
-  symbols: Map<string, Symbol>;
+export interface ScopedSymbolTable {
+  /** Symbols defined directly within this file. */
+  fileSymbols: Map<string, Symbol>;
+
+  /** Symbols brought into this file's scope via import statements. */
+  importedSymbols: Map<string, Symbol>;
+
+  /** Symbols made available to other files via export statements. */
+  exportedSymbols: Map<string, Symbol>;
 }
