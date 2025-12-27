@@ -1,25 +1,29 @@
 {
   "name": "node-express-api-ts",
-  "description": "Simple api sample in Node",
   "version": "1.0.0",
-  "private": true,
-  "main": "index.js",
+  "description": "A simple Node.js Express API in TypeScript",
+  "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon --watch 'src/**' --ext 'ts,json' --exec 'npm run build && npm run start'",
+    "start": "node dist/index.js",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "dev": "ts-node src/index.ts"
   },
-  "author": "Google LLC",
-  "license": "Apache-2.0",
+  "keywords": [
+    "nodejs",
+    "express",
+    "typescript"
+  ],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "@types/express": "^5.0.6",
-    "express": "^4.22.1",
     "tree-sitter": "^0.21.1",
-    "tree-sitter-typescript": "^0.23.2"
+    "tree-sitter-java": "^0.21.0",
+    "tree-sitter-python": "^0.21.0",
+    "tree-sitter-typescript": "^0.21.0"
   },
   "devDependencies": {
-    "@types/node": "^20.12.12",
-    "nodemon": "^3.1.0",
-    "typescript": "^5.4.5"
+    "@types/node": "^20.14.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.2"
   }
 }

@@ -17,5 +17,5 @@ COPY . .
 RUN npm run build
 
 # The command to run when the container launches
-# The app will run the compiled JavaScript file from the dist directory
+# It will analyze the project mounted at /usr/src/project
 ENTRYPOINT ["node", "dist/index.js"]

@@ -1,45 +1,39 @@
-import { ParserService } from './parser/parser.service';
-import { CanonicalizationService } from './canonical/canonicalization.service';
-import { QueryService } from './query/query.service';
-import { CanonicalNodeType } from './canonical/canonical-ast';
+import { ProjectAnalysisService } from './project/project-analysis.service';
+import { GraphBuilderService } from './graph/graph-builder.service';
 
 async function main() {
   const args = process.argv.slice(2);
-  if (args.length !== 2) {
-    console.error('Usage: npm start <file-path> <language>');
+  if (args.length !== 1) {
+    console.error('Usage: npm start <project-path>');
     process.exit(1);
   }
 
-  const [filePath, language] = args;
+  const [projectPath] = args;
 
-  // Phase 1: Parsing
-  const parserService = new ParserService();
-  const rawAst = parserService.parse(filePath, language);
+  console.log(`Analyzing project at: ${projectPath}`);
 
-  if (!rawAst) {
-    console.error('Failed to parse the file.');
+  // 1. Analyze the project and get all ASTs
+  const analysisService = new ProjectAnalysisService();
+  const asts = analysisService.analyzeProject(projectPath);
+
+  if (asts.length === 0) {
+    console.warn('No supported source files found in the project.');
     return;
   }
 
-  // Phase 2: Canonicalization
-  const canonicalizationService = new CanonicalizationService();
-  const canonicalAst = canonicalizationService.canonicalize(rawAst);
+  console.log(`Found and parsed ${asts.length} files.`);
 
-  // Phase 3: Querying
-  console.log('Querying for all import statements...');
-  const queryService = new QueryService(canonicalAst);
-  const importNodes = queryService.findByType(CanonicalNodeType.IMPORT_STATEMENT);
+  // 2. Build the project graph
+  const graphBuilder = new GraphBuilderService();
+  const projectGraph = graphBuilder.buildGraph(asts);
 
-  if (importNodes.length > 0) {
-    console.log(`Found ${importNodes.length} import statement(s):`);
-    importNodes.forEach(node => {
-      console.log(`- Import statement: "${node.text}" at ${node.filePath}:${node.startPosition.row + 1}`);
-    });
-  } else {
-    console.log('No import statements were found.');
-  }
+  // 3. Output the project graph as JSON
+  // This can be consumed by other tools and services.
+  console.log('Project graph built successfully:');
+  console.log(JSON.stringify(projectGraph, null, 2));
 }
 
 main().catch(error => {
   console.error('An unexpected error occurred:', error);
+  process.exit(1);
 });

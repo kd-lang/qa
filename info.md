@@ -17,66 +17,48 @@ This document provides instructions for testing the AST (Abstract Syntax Tree) p
 
 ### 2. Running the Tool
 
-The tool is executed from the command line and requires two arguments: the path to the file to be parsed and the language of the file.
+The tool is executed from the command line and requires one argument: the path to the project directory to be analyzed.
 
 *   **Syntax:**
     ```bash
-    npm start <file-path> <language>
+    npm start <project-path>
     ```
 
 ### 3. Test Cases
 
-*   **Test Case 1: Successful Parsing and Querying**
-    *   **Objective:** Verify that the tool can correctly parse a TypeScript file and identify all import statements.
-    *   **Command:**
+*   **Test Case 1: Successful Project Analysis**
+    *   **Objective:** Verify that the tool can correctly scan a project directory, parse all supported files (TypeScript, Python, Java), and generate a unified project graph.
+    *   **Command:** To analyze the current project:
         ```bash
-        npm start example.ts typescript
+        npm start .
         ```
-    *   **Expected Output:** The console should display a "success" message indicating that the import statements in `example.ts` have been found, along with the text and location of each statement.
+    *   **Expected Output:** The console should display a JSON object representing the project graph. This graph will contain the ASTs for all the `.ts`, `.py`, and `.java` files found in the project directory.
 
-*   **Test Case 2: File Not Found**
-    *   **Objective:** Verify that the tool handles cases where the input file does not exist.
+*   **Test Case 2: Directory Not Found**
+    *   **Objective:** Verify that the tool handles cases where the input directory does not exist.
     *   **Command:**
         ```bash
-        npm start non_existent_file.ts typescript
+        npm start non_existent_dir
         ```
-    *   **Expected Output:** The application should print an error message to the console indicating that the file could not be parsed and should exit gracefully.
-
-*   **Test Case 3: Invalid Language**
-    *   **Objective:** Verify that the tool handles cases where an unsupported language is provided.
-    *   **Command:**
-        ```bash
-        npm start example.ts python
-        ```
-    *   **Expected Output:** The application should throw an error indicating that the language is not supported.
+    *   **Expected Output:** The application should print an error message to the console and exit gracefully.
 
 ## Non-Functional Requirements Testing
 
 ### 1. Performance
 
-*   **Objective:** The tool should be able to parse and process files of a reasonable size in a timely manner.
+*   **Objective:** The tool should be able to parse and process projects of a reasonable size in a timely manner.
 *   **Test:**
-    1.  Create a large TypeScript file (e.g., >10,000 lines of code).
-    2.  Run the tool against this file and measure the execution time.
+    1.  Run the tool against a large project with many files.
+    2.  Measure the execution time.
     ```bash
-    time npm start <large_file.ts> typescript
+    time npm start <large-project-path>
     ```
-*   **Expected Result:** The execution time should be acceptable (e.g., under a few seconds).
+*   **Expected Result:** The execution time should be acceptable and scale reasonably with the size of the project.
 
 ### 2. Scalability
 
-*   **Objective:** The application's performance should not degrade significantly as the number of nodes in the AST increases.
+*   **Objective:** The application's performance should not degrade significantly as the number of files or the size of the ASTs increases.
 *   **Test:**
-    1.  Generate TypeScript files of varying complexity (e.g., one with many simple functions, another with deeply nested classes).
-    2.  Run the tool against each and observe the memory usage and execution time.
-*   **Expected Result:** Memory usage and execution time should grow linearly with the size and complexity of the input file.
-
-### 3. Security
-
-*   **Objective:** Ensure that the tool is not vulnerable to common security threats.
-*   **Test:**
-    *   **Input Sanitization:** Attempt to use a malicious file path as an argument to see if it can be used to access unauthorized parts of the file system (e.g., `../../../some_secret_file`).
-    ```bash
-    npm start ../../../package.json typescript
-    ```
-*   **Expected Result:** The application should be restricted to the project directory and should not allow access to arbitrary file paths. *Note: The current implementation using Node.js's `fs` module is generally safe from trivial path traversal attacks, but this is a good practice to keep in mind.*
+    1.  Run the tool against projects of varying sizes and complexities.
+    2.  Observe the memory usage and execution time.
+*   **Expected Result:** Memory usage and execution time should grow linearly with the size and complexity of the project.
