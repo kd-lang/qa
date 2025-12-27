@@ -1,9 +1,13 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2015",
     "module": "commonjs",
     "sourceMap": true,
     "outDir": "dist",
-    "esModuleInterop": true
-  }
+    "rootDir": "src",
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*"]
 }
